@@ -1,5 +1,6 @@
 package com.example.meetings.service;
 
+import com.example.meetings.discover.DiscoveredEvent;
 import com.example.meetings.model.InviteStatus;
 import com.example.meetings.model.Meeting;
 import com.example.meetings.model.MeetingParticipant;
@@ -10,6 +11,7 @@ import com.example.meetings.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -73,6 +75,33 @@ public class MeetingService {
                 .findByMeetingIdAndUserId(meetingId, user.getId())
                 .orElseThrow(() -> new IllegalArgumentException("No invite found for this user"));
         participant.setStatus(status);
+    }
+
+    /**
+     * Add a discovered event to the user's calendar. The user is the sole participant and
+     * auto-accepts, so {@link Meeting#isConfirmed()} is true immediately — no invite flow.
+     * If the event has no end time we default to two hours, which matches most concerts/games.
+     */
+    @Transactional
+    public Meeting copyFromDiscovered(User user, DiscoveredEvent event) {
+        Instant end = event.end() != null ? event.end() : event.start().plus(Duration.ofHours(2));
+        String description = buildDescription(event);
+        Meeting meeting = new Meeting(event.title(), description, event.start(), end, user);
+        meeting.addParticipant(new MeetingParticipant(meeting, user, InviteStatus.ACCEPTED));
+        return meetingRepository.save(meeting);
+    }
+
+    private static String buildDescription(DiscoveredEvent event) {
+        StringBuilder sb = new StringBuilder();
+        if (event.description() != null && !event.description().isBlank()) {
+            sb.append(event.description()).append("\n\n");
+        }
+        if (event.venue() != null && !event.venue().isBlank()) {
+            sb.append("Venue: ").append(event.venue()).append("\n");
+        }
+        sb.append("Source: ").append(event.source());
+        if (event.url() != null) sb.append(" (").append(event.url()).append(")");
+        return sb.toString();
     }
 
     /** Used by the iCal feed; declined invites are filtered out elsewhere. */
