@@ -42,4 +42,12 @@ public class ICalController {
                 .header("Content-Disposition", "inline; filename=\"meetings.ics\"")
                 .body(body);
     }
+
+
+    @GetMapping("/ical/debug")
+    public ResponseEntity<String> debug() {
+        System.out.println("ICAL CONTROLLER HIT");
+        return ResponseEntity.ok("ok");
+    }
+
 }
