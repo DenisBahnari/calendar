@@ -7,13 +7,11 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
-@ActiveProfiles("test")
-@Import(TestSecurityConfig.class)
+@ActiveProfiles({"test", "ci"})
 @TestPropertySource(properties = {
         "spring.security.csrf.enabled=false",
         "security.enable-csrf=false"
@@ -49,8 +47,12 @@ public abstract class BaseE2ETest {
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
 
-        // Keep browser open for debugging (remove in production)
-        // options.addArguments("--headless=new");
+        // Detectar se está em ambiente CI
+        boolean isCI = System.getenv("CI") != null || System.getProperty("CI") != null;
+        if (isCI) {
+            options.addArguments("--headless=new");
+            System.out.println("Running in CI mode - using headless Chrome");
+        }
 
         // Desabilitar CDP logging
         System.setProperty("webdriver.chrome.silentOutput", "true");
