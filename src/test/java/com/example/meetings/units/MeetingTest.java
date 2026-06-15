@@ -78,7 +78,7 @@ public class MeetingTest {
     }
 
     @Test
-    void organizerShouldAutomaticallyAcceptMeeting() {
+    void organizerShouldAutoAcceptMeeting() {
         Instant start = Instant.now();
         Instant end = start.plusSeconds(60);
         User user = new User("john", "john@gmail.com", "hashed");
