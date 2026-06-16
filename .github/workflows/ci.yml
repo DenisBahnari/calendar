@@ -30,11 +30,7 @@ jobs:
         run: chmod +x mvnw
 
       - name: Run tests
-        env:
-          TICKETMASTER_API_KEY: ${{ 7ivz6QtXj2AFGwNqLEtMd6Xzg5IgQBPE.TICKETMASTER_API_KEY }}
-          SEATGEEK_CLIENT_ID: ${{ secrets.SEATGEEK_CLIENT_ID }}
-          CI: true
-        run: ./mvnw clean test
+        run: ./mvnw clean test -DskipTests=false
 
       - name: Upload test reports
         if: always()
