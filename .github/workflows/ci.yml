@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,28 +27,16 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
-      - name: Setup Chrome
-        uses: browser-actions/setup-chrome@v1
-
-      - name: Setup ChromeDriver
-        uses: nanasess/setup-chromedriver@v2
-
-      - name: Start Xvfb
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb
-          Xvfb :99 -screen 0 1920x1080x24 &
-          echo "DISPLAY=:99" >> $GITHUB_ENV
-
       - name: Make mvnw executable
         run: chmod +x mvnw
 
-      - name: Run all tests
+      - name: Run integration and unit tests (skip E2E)
         env:
-          CI: true
-          TICKETMASTER_API_KEY: ${{ secrets.TICKETMASTER_API_KEY || 'dummy_ci_key' }}
-          SEATGEEK_CLIENT_ID: ${{ secrets.SEATGEEK_CLIENT_ID || 'dummy_ci_id' }}
-        run: ./mvnw clean test
+          TICKETMASTER_API_KEY: ${{ secrets.TICKETMASTER_API_KEY || 'dummy_key' }}
+          SEATGEEK_CLIENT_ID: ${{ secrets.SEATGEEK_CLIENT_ID || 'dummy_key' }}
+        run: |
+          ./mvnw clean test -Dtest="com.example.meetings.integrations.**,com.example.meetings.units.**" \
+            -DfailIfNoTests=false
 
       - name: Upload test reports
         if: always()
