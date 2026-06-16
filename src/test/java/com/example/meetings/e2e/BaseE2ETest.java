@@ -49,9 +49,6 @@ public abstract class BaseE2ETest {
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
 
-        // Keep browser open for debugging (remove in production)
-        // options.addArguments("--headless=new");
-
         // Desabilitar CDP logging
         System.setProperty("webdriver.chrome.silentOutput", "true");
         java.util.logging.Logger.getLogger("org.openqa.selenium").setLevel(java.util.logging.Level.SEVERE);

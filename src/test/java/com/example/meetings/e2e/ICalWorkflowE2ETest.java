@@ -35,10 +35,127 @@ public class ICalWorkflowE2ETest extends BaseE2ETest {
 
     @Test
     void userCanExportCalendarAsIcal() {
-        // ... existing test code ...
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+
+        String username = "ical" + System.currentTimeMillis();
+        String meetingTitle = "ICAL TEST " + System.currentTimeMillis();
+
+        System.out.println("=== Starting iCal Export Test ===");
+        System.out.println("Username: " + username);
+        System.out.println("Meeting Title: " + meetingTitle);
+
+        // 1. Register user
+        System.out.println("\n1. Registering user...");
+        RegisterPage register = new RegisterPage(driver);
+        register.open();
+        register.registerAndExpectSuccess(username, username + "@mail.pt", "123456");
+
+        // 2. Login
+        System.out.println("\n2. Logging in...");
+        LoginPage login = new LoginPage(driver);
+        login.open();
+        login.loginAndExpectSuccess(username, "123456");
+
+        // 3. Create meeting via HTTP
+        System.out.println("\n3. Creating meeting via HTTP...");
+        ProposeMeetingPage meetingPage = new ProposeMeetingPage(driver);
+        meetingPage.open();
+
+        String startTime = getFutureDateTime(30, 15, 0);
+        String endTime = getFutureDateTime(30, 16, 0);
+
+        System.out.println("Start time: " + startTime);
+        System.out.println("End time: " + endTime);
+
+        meetingPage.createMeetingViaHttp(meetingTitle, startTime, endTime, "");
+
+        System.out.println("Waiting for meeting creation...");
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // 4. Verificar se a meeting foi criada
+        System.out.println("\n4. Verifying meeting on calendar...");
+        driver.get("http://localhost:8080/calendar");
+        wait.until(ExpectedConditions.urlContains("/calendar"));
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.tagName("body")));
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        String pageSource = driver.getPageSource();
+        boolean meetingFound = pageSource.contains(meetingTitle);
+        System.out.println("Meeting found on calendar: " + meetingFound);
+        assertTrue(meetingFound, "Meeting was not created successfully");
+
+        // 5. Obter URL do iCal
+        System.out.println("\n5. Getting iCal URL...");
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.className("url")));
+
+        CalendarPage calendar = new CalendarPage(driver);
+        String icalUrl = calendar.getIcalUrl();
+        System.out.println("iCal URL found: " + icalUrl);
+
+        // Converter webcal:// para http://
+        if (icalUrl.startsWith("webcal://")) {
+            icalUrl = icalUrl.replace("webcal://", "http://");
+            System.out.println("Converted webcal to http: " + icalUrl);
+        }
+
+        if (!icalUrl.startsWith("http")) {
+            icalUrl = "http://localhost:8080" + (icalUrl.startsWith("/") ? icalUrl : "/" + icalUrl);
+        }
+        System.out.println("Full iCal URL: " + icalUrl);
+
+        // 6. Obter conteúdo do iCal via JavaScript (fetch API)
+        System.out.println("\n6. Fetching iCal content via HTTP request...");
+        String script = "var callback = arguments[arguments.length - 1];" +
+                "fetch('" + icalUrl + "', {" +
+                "  method: 'GET'," +
+                "  credentials: 'include'" +
+                "}).then(response => response.text())" +
+                ".then(data => callback(data))" +
+                ".catch(error => callback('ERROR: ' + error));";
+
+        String icalContent = (String) ((JavascriptExecutor) driver).executeAsyncScript(script);
+        System.out.println("iCal content fetched, length: " + (icalContent != null ? icalContent.length() : 0));
+
+        if (icalContent == null || icalContent.isEmpty()) {
+            System.out.println("Failed to fetch iCal content");
+            assertTrue(false, "Could not fetch iCal content");
+        }
+
+        // 7. Verificar conteúdo do iCal
+        System.out.println("\n7. Verifying iCal content...");
+
+        boolean hasVCalendar = icalContent.contains("BEGIN:VCALENDAR");
+        boolean hasMeetingTitle = icalContent.contains(meetingTitle);
+        boolean hasVersion = icalContent.contains("VERSION:2.0");
+        boolean hasEndCalendar = icalContent.contains("END:VCALENDAR");
+
+        System.out.println("BEGIN:VCALENDAR found: " + hasVCalendar);
+        System.out.println("Meeting title found: " + hasMeetingTitle);
+        System.out.println("VERSION:2.0 found: " + hasVersion);
+        System.out.println("END:VCALENDAR found: " + hasEndCalendar);
+
+        if (!hasVCalendar && icalContent != null) {
+            System.out.println("iCal content preview (first 500 chars):");
+            System.out.println(icalContent.substring(0, Math.min(500, icalContent.length())));
+        }
+
+        assertTrue(hasVCalendar, "iCal does not contain BEGIN:VCALENDAR");
+        assertTrue(hasMeetingTitle, "iCal does not contain meeting title");
+        assertTrue(hasVersion, "iCal does not contain VERSION:2.0");
+        assertTrue(hasEndCalendar, "iCal does not contain END:VCALENDAR");
+
+        System.out.println("\n=== Test completed successfully ===");
     }
 
-    // NOVO: iCal com múltiplas meetings
     @Test
     void iCalContainsMultipleMeetings() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
@@ -103,7 +220,7 @@ public class ICalWorkflowE2ETest extends BaseE2ETest {
         System.out.println("=== Multiple meetings iCal test completed ===");
     }
 
-    // NOVO: iCal mostra status correcto (confirmed vs tentative)
+
     @Test
     void iCalShowsCorrectMeetingStatus() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
@@ -185,7 +302,7 @@ public class ICalWorkflowE2ETest extends BaseE2ETest {
         System.out.println("=== iCal status test completed ===");
     }
 
-    // NOVO: Token iCal inválido retorna erro ou página não encontrada
+
     @Test
     void invalidIcalTokenReturnsError() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
@@ -207,7 +324,6 @@ public class ICalWorkflowE2ETest extends BaseE2ETest {
         System.out.println("=== Invalid iCal token test completed ===");
     }
 
-    // NOVO: iCal inclui description quando disponível (venue é opcional)
     @Test
     void iCalIncludesDescription() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
@@ -273,7 +389,6 @@ public class ICalWorkflowE2ETest extends BaseE2ETest {
         System.out.println("=== iCal description test completed ===");
     }
 
-    // NOVO: Declined meetings should not appear in iCal for the person who declined
     @Test
     void declinedMeetingsDoNotAppearInIcalForDecliner() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
@@ -368,10 +483,6 @@ public class ICalWorkflowE2ETest extends BaseE2ETest {
         // Note: This may or may not be expected behavior
         System.out.println("Meeting appears in organizer's iCal: " +
                 aliceIcalContent.contains(meetingTitle));
-
-        // This assertion might need to be removed if organizer shouldn't see declined meetings
-        // assertTrue(aliceIcalContent.contains(meetingTitle),
-        //     "Meeting should still appear in iCal for organizer even if someone declined");
 
         System.out.println("=== Declined meeting iCal test completed ===");
     }

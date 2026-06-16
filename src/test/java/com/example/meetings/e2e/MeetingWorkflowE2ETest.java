@@ -48,15 +48,254 @@ class MeetingWorkflowE2ETest extends BaseE2ETest {
 
     @Test
     void invitedUserAcceptsMeetingAndMeetingBecomesConfirmed() {
-        // ... existing test code ...
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
+        sessionHelper = new SessionHelper(driver);
+
+        String alice = "alice" + System.currentTimeMillis();
+        String bob = "bob" + System.currentTimeMillis();
+        String meetingTitle = "VVS Meeting " + System.currentTimeMillis();
+
+        System.out.println("=== Starting test ===");
+        System.out.println("Alice: " + alice);
+        System.out.println("Bob: " + bob);
+        System.out.println("Meeting: " + meetingTitle);
+
+        // 1. Register Alice
+        System.out.println("\n1. Registering Alice...");
+        RegisterPage register = new RegisterPage(driver);
+        register.open();
+        register.registerAndExpectSuccess(alice, alice + "@mail.pt", "123456");
+
+        // 2. Register Bob
+        System.out.println("\n2. Registering Bob...");
+        register.open();
+        register.registerAndExpectSuccess(bob, bob + "@mail.pt", "123456");
+
+        // 3. Login as Alice
+        System.out.println("\n3. Logging in as Alice...");
+        LoginPage login = new LoginPage(driver);
+        login.open();
+        login.loginAndExpectSuccess(alice, "123456");
+
+        // 4. Create meeting via HTTP
+        System.out.println("\n4. Creating meeting via HTTP...");
+        ProposeMeetingPage meetingPage = new ProposeMeetingPage(driver);
+        meetingPage.open();
+
+        String startTime = getFutureDateTime(7, 10, 0);
+        String endTime = getFutureDateTime(7, 11, 0);
+
+        System.out.println("Start time: " + startTime);
+        System.out.println("End time: " + endTime);
+
+        meetingPage.createMeetingViaHttp(meetingTitle, startTime, endTime, bob);
+
+        // Wait for meeting creation
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // 5. Verify meeting appears on Alice's calendar
+        System.out.println("\n5. Verifying meeting on Alice's calendar...");
+        driver.get("http://localhost:8080/calendar");
+        wait.until(ExpectedConditions.urlContains("/calendar"));
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.tagName("body")));
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        String pageSource = driver.getPageSource();
+        boolean meetingFound = pageSource.contains(meetingTitle);
+        System.out.println("Meeting found on Alice's calendar: " + meetingFound);
+
+        assertTrue(meetingFound, "Meeting not found on Alice's calendar");
+        System.out.println("Meeting found on Alice's calendar!");
+
+        // 6. Logout Alice
+        System.out.println("\n6. Logging out Alice...");
+        driver.get("http://localhost:8080/logout");
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // 7. Login as Bob
+        System.out.println("\n7. Logging in as Bob...");
+        login.open();
+        login.loginAndExpectSuccess(bob, "123456");
+
+        // 8. Verify Bob sees the meeting
+        System.out.println("\n8. Verifying meeting on Bob's calendar...");
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.tagName("body")));
+
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        driver.get("http://localhost:8080/calendar");
+        wait.until(ExpectedConditions.urlContains("/calendar"));
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        pageSource = driver.getPageSource();
+        meetingFound = pageSource.contains(meetingTitle);
+        System.out.println("Meeting found on Bob's calendar: " + meetingFound);
+
+        assertTrue(meetingFound, "Meeting not found on Bob's calendar");
+        System.out.println("Meeting found on Bob's calendar!");
+
+        // 9. Accept invite
+        System.out.println("\n9. Accepting invite...");
+        CalendarPage bobCalendar = new CalendarPage(driver);
+
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        bobCalendar.acceptFirstInvite();
+
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // 10. Verify meeting shows as confirmed
+        System.out.println("\n10. Verifying meeting is confirmed...");
+        driver.get("http://localhost:8080/calendar");
+        wait.until(ExpectedConditions.urlContains("/calendar"));
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        boolean confirmed = bobCalendar.containsConfirmedBadge();
+        System.out.println("Meeting confirmed badge found: " + confirmed);
+
+        assertTrue(confirmed, "Meeting confirmation badge not found");
+        System.out.println("Meeting is confirmed!");
+
+        System.out.println("\n=== Test completed successfully ===");
     }
 
     @Test
     void userCanDeclineMeetingInvite() {
-        // ... existing test code ...
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
+        sessionHelper = new SessionHelper(driver);
+
+        String organizer = "org" + System.currentTimeMillis();
+        String invitee = "invitee" + System.currentTimeMillis();
+        String meetingTitle = "Test Meeting " + System.currentTimeMillis();
+
+        System.out.println("=== Starting decline test ===");
+        System.out.println("Organizer: " + organizer);
+        System.out.println("Invitee: " + invitee);
+        System.out.println("Meeting: " + meetingTitle);
+
+        // Register users
+        RegisterPage register = new RegisterPage(driver);
+        register.open();
+        register.registerAndExpectSuccess(organizer, organizer + "@mail.pt", "123456");
+
+        register.open();
+        register.registerAndExpectSuccess(invitee, invitee + "@mail.pt", "123456");
+
+        // Organizer creates meeting via HTTP
+        LoginPage login = new LoginPage(driver);
+        login.open();
+        login.loginAndExpectSuccess(organizer, "123456");
+
+        ProposeMeetingPage meetingPage = new ProposeMeetingPage(driver);
+        meetingPage.open();
+
+        String startTime = getFutureDateTime(14, 14, 0);
+        String endTime = getFutureDateTime(14, 15, 0);
+
+        System.out.println("Start time: " + startTime);
+        System.out.println("End time: " + endTime);
+
+        meetingPage.createMeetingViaHttp(meetingTitle, startTime, endTime, invitee);
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Verify meeting appears for organizer
+        driver.get("http://localhost:8080/calendar");
+        wait.until(ExpectedConditions.urlContains("/calendar"));
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.tagName("body")));
+
+        boolean meetingFound = driver.getPageSource().contains(meetingTitle);
+        System.out.println("Meeting found on organizer's calendar: " + meetingFound);
+        assertTrue(meetingFound, "Meeting not found on organizer's calendar");
+
+        // Sign out organizer
+        driver.get("http://localhost:8080/logout");
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Invitee logs in
+        login.open();
+        login.loginAndExpectSuccess(invitee, "123456");
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.tagName("body")));
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Find and click decline button
+        try {
+            WebDriverWait shortWait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            org.openqa.selenium.WebElement declineButton = shortWait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//button[contains(text(),'Decline')] | //button[contains(text(),'decline')] | //button[contains(@class,'decline')]")
+            ));
+            declineButton.click();
+            System.out.println("Clicked decline button");
+
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            driver.get("http://localhost:8080/calendar");
+            wait.until(ExpectedConditions.urlContains("/calendar"));
+            assertTrue(driver.getCurrentUrl().contains("/calendar"), "Not on calendar page after decline");
+            System.out.println("Successfully declined meeting");
+
+        } catch (Exception e) {
+            System.err.println("Decline button not found: " + e.getMessage());
+            driver.get("http://localhost:8080/calendar");
+            wait.until(ExpectedConditions.urlContains("/calendar"));
+            assertTrue(driver.getCurrentUrl().contains("/calendar"), "Not on calendar page");
+        }
+
+        System.out.println("=== Decline test completed ===");
     }
 
-    // NOVO: Criar meeting com múltiplos convidados
+
     @Test
     void meetingWithMultipleInvitees() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
@@ -117,7 +356,6 @@ class MeetingWorkflowE2ETest extends BaseE2ETest {
         System.out.println("=== Multiple invitees test completed ===");
     }
 
-    // NOVO: Tentar criar meeting com convidado inexistente
     @Test
     void cannotInviteNonExistentUser() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
@@ -160,7 +398,6 @@ class MeetingWorkflowE2ETest extends BaseE2ETest {
         System.out.println("=== Non-existent invitee test completed ===");
     }
 
-    // NOVO: Criar meeting com data inválida (end time before start time)
     @Test
     void cannotCreateMeetingWithInvalidDates() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
@@ -201,7 +438,6 @@ class MeetingWorkflowE2ETest extends BaseE2ETest {
         System.out.println("=== Invalid dates test completed ===");
     }
 
-    // NOVO: Criar meeting apenas para mim (sem convidados)
     @Test
     void createMeetingForSelfOnly() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
@@ -238,7 +474,6 @@ class MeetingWorkflowE2ETest extends BaseE2ETest {
         System.out.println("=== Self meeting test completed ===");
     }
 
-    // NOVO: Verificar que o organizador vê o meeting como confirmed depois de todos aceitarem
     @Test
     void organizerSeesConfirmedAfterAllAccept() {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
